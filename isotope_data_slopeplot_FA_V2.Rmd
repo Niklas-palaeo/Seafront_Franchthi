@@ -29,18 +29,52 @@ range_end <- c(1400, 10300, 9501, 8601, 8500, 8500, 8000, 7700, 7301, 6600, 5700
 # data$cal_BP_start <- range_start
 # data$cal_BP_end <- range_end
 
+
+#### Your best friend put in some comments into this code:
+
+# This script is used to process a dataset (`data`) for the purpose of adjusting
+# or "stretching" the time information associated with archaeological trench 
+# and unit data based on established chronologies.
+
+# Start a chain of operations on `data` using the pipe operator (`%>%`)
 data_stretch <- data %>% 
-   group_by(trench, Chronology) %>%
-    mutate(approx_time = ifelse(unit == max(unit), cal_BP_start, NA),
-           approx_time = ifelse(unit==min(unit),cal_BP_end,approx_time),
-           approx_time = na.approx(approx_time)) %>%
+
+  # Group the data by `trench` and `Chronology` columns
+  group_by(trench, Chronology) %>%
+
+  # Create a new column `approx_time`. 
+  # If `unit` is equal to the maximum `unit` in the group, assign `cal_BP_start` to `approx_time`.
+  # Otherwise, assign `NA` to `approx_time`.
+  mutate(approx_time = ifelse(unit == max(unit), cal_BP_start, NA),
+
+  # Update `approx_time`. 
+  # If `unit` is equal to the minimum `unit` in the group, assign `cal_BP_end` to `approx_time`.
+  # Otherwise, leave `approx_time` unchanged.
+         approx_time = ifelse(unit==min(unit),cal_BP_end,approx_time),
+
+  # Update `approx_time` to replace `NA` values with an approximation based on linear interpolation
+  # (or the closest non-`NA` value if interpolation is not possible).
+         approx_time = na.approx(approx_time)) %>%
+
+  # "Ungroup" the data to remove the grouping by `trench` and `Chronology`
   ungroup() %>% 
+
+  # Group the data by `trench` and `unit`
   group_by(trench,unit) %>% 
+
+  # Update `approx_time` to be the mean `approx_time` in the group
   mutate(approx_time=mean(approx_time),
-        approx_time = round(approx_time,0)) %>% 
+
+  # Round `approx_time` to the nearest integer
+         approx_time = round(approx_time,0)) %>% 
+
+  # "Ungroup" the data to remove the grouping by `trench` and `unit`
   ungroup() %>% 
+
+  # Arrange the data in ascending order by `trench` and `unit`
   arrange(trench,unit)
 
+####
 
 plot <-
   ggplot(data_stretch, aes(x = approx_time, y =d18O , color = Season)) +
