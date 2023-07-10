@@ -5,51 +5,61 @@ date: "2023-07-10"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
 ```{r setup, include=FALSE}
 library(readxl)
 library(ggplot2)
 library(zoo)
 library(tidyverse)
+library(here)
+```
 
-data <- read_excel("C:/Users/danau/OneDrive/Documents/zu_Mainz_new/phd_data/isotope samples/isotope data results/isotope_data_results.xlsx", sheet = "arch_FA") %>% 
+
+```{r data, include=FALSE}
+data <- read_excel(here("isotope_data_results.xlsx"), sheet = "arch_FA") %>% 
   separate('SEAFRONT sample names',sep="_",into = c("trench","unit","specimen"),remove = FALSE) %>% 
-  arrange(trench,unit)# %>% 
-  #  group_by(trench, Chronology) %>%
-  # mutate(approx_time = na.approx(unit, 
-  #                                c(min(unit), max(unit)), 
-  #                                c(min(cal_BP_start), max(cal_BP_end)), 
-  #                                xout = unit),
-  #       approx_time = round(approx_time,0)) %>%
-  # ungroup()
+  mutate(Chronology= factor(data$Chronology,
+                          levels = c("FP", "LM", "UM", "FM", "FM/IN", "IN", "EN", "EN-MN", "MN", "LN", "FN"))) # I moved this line about factor order to here
 
-data$Chronology <- factor(data$Chronology,
-                          levels = c("FP", "LM", "UM", "FM", "FM/IN", "IN", "EN", "EN-MN", "MN", "LN", "FN"))
-
-range_start <- c(11700, 10800, 10291, 9500, 8900, 8600, 8499, 8300, 7500, 7300, 6100)
+# I DON"T UNDERSTAND THESE DATES BUT THEY NEED TO BE INTEGRATED I THINK?
+range_start <- c(11700, 10800, 10291, 9500, 8900, 8600, 8499, 8300, 7500, 7300, 6100) 
 range_end <- c(1400, 10300, 9501, 8601, 8500, 8500, 8000, 7700, 7301, 6600, 5700)
 
-data$cal_BP_start <- range_start
-data$cal_BP_end <- range_end
 
-plot <- ggplot(data, aes(x = cal_BP_start, xend = cal_BP_end, y = d18O, color = Season)) +
+# data$cal_BP_start <- range_start
+# data$cal_BP_end <- range_end
+
+data_stretch <- data %>% 
+   group_by(trench, Chronology) %>%
+    mutate(approx_time = ifelse(unit == max(unit), cal_BP_start, NA),
+           approx_time = ifelse(unit==min(unit),cal_BP_end,approx_time),
+           approx_time = na.approx(approx_time)) %>%
+  ungroup() %>% 
+  group_by(trench,unit) %>% 
+  mutate(approx_time=mean(approx_time),
+        approx_time = round(approx_time,0)) %>% 
+  ungroup() %>% 
+  arrange(trench,unit)
+
+
+plot <-
+  ggplot(data_stretch, aes(x = approx_time, y =d18O , color = Season)) +
   geom_linerange(aes(ymin = d18O - internal, ymax = d18O + internal)) +
   geom_point() +
-  stat_smooth(data = subset(data, Season == "Winter"), aes(group = Season), method = "loess", se = TRUE, span = 0.5) +
-  stat_smooth(data = subset(data, Season == "Summer"), aes(group = Season), method = "loess", se = TRUE, span = 0.5) +
-  labs(x = "Chronology", y = bquote(delta ^ 18 * O ~ "(‰ VSMOW)"), color = "Season",
+  stat_smooth(data = subset(data_stretch, Season == "Winter"), aes(group = Season), method = "loess", se = TRUE, span = 0.5) +
+  stat_smooth(data = subset(data_stretch, Season == "Summer"), aes(group = Season), method = "loess", se = TRUE, span = 0.5) +
+  labs(x = "Chronology", y = bquote(delta ^ 18 * O ~ "(‰ VPDB)"), color = "Season",
        title = expression(paste("Changes in ", delta ^ 18 * O, " in Franchthi cave"))) +
   theme_minimal() +
   scale_y_reverse() +
   scale_x_reverse() +  # Reverse the x-axis
   theme(plot.title = element_text(hjust = 0.5))
 
-print(plot)
+plot
 
-ggsave("plot.png", plot, width = 8, height = 6, dpi = 300)
+# print(plot)
+
+# ggsave("plot.png", plot, width = 8, height = 6, dpi = 300)
 
 
 ```
